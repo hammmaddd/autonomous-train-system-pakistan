@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Railway Control Panel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+  </script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #020617;
+      color: #e5e7eb;
+      display: flex;
+      justify-content: center;
+      padding: 24px 12px;
+    }
+    .shell {
+      width: 100%;
+      max-width: 1200px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .card {
+      background:#0b1120;
+      border-radius:16px;
+      border:1px solid #1f2937;
+      padding:18px 20px;
+    }
+    .header {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:14px;
+      border-bottom:1px solid #1f2937;
+      padding-bottom:10px;
+    }
+    .title { font-size:1.1rem; font-weight:600; }
+    .subtitle { font-size:.85rem; color:#9ca3af; }
+    .badge {
+      font-size:.75rem;
+      padding:4px 10px;
+      border-radius:999px;
+      background:rgba(22,163,74,0.1);
+      color:#bbf7d0;
+      border:1px solid rgba(34,197,94,0.6);
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+    .badge-dot {
+      width:7px;
+      height:7px;
+      border-radius:999px;
+      background:#22c55e;
+      box-shadow:0 0 8px rgba(34,197,94,0.8);
+    }
+    .metrics {
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:12px;
+      margin-bottom:14px;
+    }
+    @media (max-width:1000px) {
+      .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+    .metric-card {
+      border-radius:14px;
+      border:1px solid #1f2937;
+      padding:10px 11px;
+      background:radial-gradient(circle at top left,rgba(34,197,94,0.15),#020617);
+    }
+    .metric-label {
+      font-size:.75rem;
+      text-transform:uppercase;
+      letter-spacing:.12em;
+      color:#9ca3af;
+      margin-bottom:4px;
+    }
+    .metric-value { font-size:1.0rem; font-weight:600; }
+    .metric-unit { font-size:.75rem; color:#9ca3af; margin-left:4px; }
+
+    .section-label {
+      font-size:.78rem;
+      text-transform:uppercase;
+      letter-spacing:.16em;
+      color:#9ca3af;
+      margin:8px 0 4px;
+    }
+    .config-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+    .config-label { width:110px; font-size:.8rem; color:#9ca3af; }
+    .select { flex:1; }
+    .select select {
+      width:100%;
+      padding:6px 9px;
+      border-radius:999px;
+      border:1px solid #1f2937;
+      background:#020617;
+      color:#e5e7eb;
+      font-size:.8rem;
+    }
+    .mode-toggle {
+      display:inline-flex;
+      border-radius:999px;
+      border:1px solid #1f2937;
+      padding:2px;
+      margin-top:2px;
+    }
+    .mode-pill {
+      border:none;
+      background:transparent;
+      color:#9ca3af;
+      padding:5px 10px;
+      border-radius:999px;
+      font-size:.8rem;
+      cursor:pointer;
+    }
+    .mode-pill.active {
+      background:#22c55e;
+      color:#022c22;
+      font-weight:600;
+    }
+    .actions {
+      margin-top:8px;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .btn {
+      border:none;
+      border-radius:999px;
+      padding:8px 14px;
+      font-size:.85rem;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+    .btn-primary { background:linear-gradient(135deg,#22c55e,#16a34a); color:#022c22; }
+    .btn-secondary { background:#020617; color:#9ca3af; border:1px solid #1f2937; }
+    .btn-danger { background:#b91c1c; color:#fee2e2; }
+
+    .map-wrapper { height: 450px; width: 100%; }
+    #map {
+      width:100%;
+      height:100%;
+      border-radius:16px;
+      border:1px solid #1f2937;
+      overflow:hidden;
+    }
+    .footer-bar {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      font-size:.78rem;
+      color:#9ca3af;
+      margin-top:6px;
+      flex-wrap:wrap;
+      gap:6px;
+    }
+    .footer-business {
+      font-size:.78rem;
+      color:#9ca3af;
+      margin-top:4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <!-- TOP: metrics + basic train configuration -->
+    <div class="card">
+      <div class="header">
+        <div>
+          <div class="title">Autonomous Train System · Pakistan</div>
+          <div class="subtitle">
+            Utility-based routing with probability, fire-aware detours and per-train KPIs.
+          </div>
+        </div>
+        <div class="badge">
+          <span class="badge-dot"></span>
+          Live simulation
+        </div>
+      </div>
+
+      <div class="metrics">
+        <div class="metric-card">
+          <div class="metric-label">Active Trains</div>
+          <div class="metric-value" id="active-trains">0</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Total Distance (km)</div>
+          <div class="metric-value"><span id="total-distance">0.0</span></div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">AI Efficiency</div>
+          <div class="metric-value" id="ai-efficiency">0%</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Speed Multiplier</div>
+          <div class="metric-value" id="speed-multiplier">0.0x</div>
+        </div>
+      </div>
+
+      <div class="metrics">
+        <div class="metric-card">
+          <div class="metric-label">Train 1 (km / min / PKR)</div>
+          <div class="metric-value">
+            <span id="t1-distance">0.0</span><span class="metric-unit"> / </span>
+            <span id="t1-time">0.0</span><span class="metric-unit"> / </span>
+            <span id="t1-cost">0.0</span>
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Train 2 (km / min / PKR)</div>
+          <div class="metric-value">
+            <span id="t2-distance">0.0</span><span class="metric-unit"> / </span>
+            <span id="t2-time">0.0</span><span class="metric-unit"> / </span>
+            <span id="t2-cost">0.0</span>
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Train 3 (km / min / PKR)</div>
+          <div class="metric-value">
+            <span id="t3-distance">0.0</span><span class="metric-unit"> / </span>
+            <span id="t3-time">0.0</span><span class="metric-unit"> / </span>
+            <span id="t3-cost">0.0</span>
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Status</div>
+          <div class="metric-value" id="active-trains-trend">Idle</div>
+        </div>
+      </div>
+
+      <div class="section-label">Train start / destination (set to None to disable)</div>
+
+      <div class="config-row">
+        <div class="config-label">Train 1</div>
+        <div class="select">
+          <select id="t1-start">
+            <option>None</option>
+            <option>KPK station</option>
+            <option>Peer Swaha</option>
+            <option>Islamabad Station</option>
+            <option>Rawalpindi</option>
+            <option>Lahore</option>
+            <option>Gujranwala</option>
+            <option>Sindh</option>
+          </select>
+        </div>
+        <div class="select">
+          <select id="t1-dest">
+            <option>None</option>
+            <option>KPK station</option>
+            <option>Peer Swaha</option>
+            <option>Islamabad Station</option>
+            <option>Rawalpindi</option>
+            <option>Lahore</option>
+            <option>Gujranwala</option>
+            <option>Sindh</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="config-row">
+        <div class="config-label">Train 2</div>
+        <div class="select">
+          <select id="t2-start">
+            <option>None</option>
+            <option>KPK station</option>
+            <option>Peer Swaha</option>
+            <option>Islamabad Station</option>
+            <option>Rawalpindi</option>
+            <option>Lahore</option>
+            <option>Gujranwala</option>
+            <option>Sindh</option>
+          </select>
+        </div>
+        <div class="select">
+          <select id="t2-dest">
+            <option>None</option>
+            <option>KPK station</option>
+            <option>Peer Swaha</option>
+            <option>Islamabad Station</option>
+            <option>Rawalpindi</option>
+            <option>Lahore</option>
+            <option>Gujranwala</option>
+            <option>Sindh</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="config-row">
+        <div class="config-label">Train 3</div>
+        <div class="select">
+          <select id="t3-start">
+            <option>None</option>
+            <option>KPK station</option>
+            <option>Peer Swaha</option>
+            <option>Islamabad Station</option>
+            <option>Rawalpindi</option>
+            <option>Lahore</option>
+            <option>Gujranwala</option>
+            <option>Sindh</option>
+          </select>
+        </div>
+        <div class="select">
+          <select id="t3-dest">
+            <option>None</option>
+            <option>KPK station</option>
+            <option>Peer Swaha</option>
+            <option>Islamabad Station</option>
+            <option>Rawalpindi</option>
+            <option>Lahore</option>
+            <option>Gujranwala</option>
+            <option>Sindh</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- MIDDLE: utility / risk / alarms just above map -->
+    <div class="card">
+      <div class="section-label">Utility mode (reward)</div>
+      <div class="config-row">
+        <div class="config-label">Utility</div>
+        <div class="mode-toggle">
+          <button class="mode-pill active" id="util-time">Time</button>
+          <button class="mode-pill" id="util-distance">Distance</button>
+          <button class="mode-pill" id="util-cost">Cost</button>
+        </div>
+      </div>
+
+      <div class="section-label">Risk profile & Fire alarms</div>
+      <div class="config-row">
+        <div class="config-label">Risk mode</div>
+        <div class="mode-toggle">
+          <button class="mode-pill active" id="mode-safety">Safety</button>
+          <button class="mode-pill" id="mode-comfort">Comfort</button>
+        </div>
+      </div>
+
+      <div class="config-row">
+        <div class="config-label">Alarm station</div>
+        <div class="select">
+          <select id="alarm-station">
+            <option>Gujranwala</option>
+            <option>KPK station</option>
+            <option>Peer Swaha</option>
+            <option>Islamabad Station</option>
+            <option>Rawalpindi</option>
+            <option>Lahore</option>
+            <option>Sindh</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-danger" id="raise-alarm-btn">Raise alarm</button>
+        <button class="btn btn-secondary" id="clear-alarm-btn">Clear alarm</button>
+        <button class="btn btn-primary" id="start-btn">▶ Start</button>
+        <button class="btn btn-secondary" id="reset-btn">↺ Reset</button>
+      </div>
+    </div>
+
+    <!-- BOTTOM: map -->
+    <div class="map-wrapper">
+      <div id="map"></div>
+      <div class="footer-bar">
+        <span>Backend: Python · Flask · MDP-style autonomous routing</span>
+        <span id="tick-rate-label">0.25s polling</span>
+      </div>
+      <div class="footer-business">
+        Business uses: operations planning, passenger information, and disaster simulations on Pakistan’s rail network.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentRiskMode = "Safety";
+    let currentUtilityMode = "Time";
+
+    const modeSafety = document.getElementById("mode-safety");
+    const modeComfort = document.getElementById("mode-comfort");
+    const utilTime = document.getElementById("util-time");
+    const utilDistance = document.getElementById("util-distance");
+    const utilCost = document.getElementById("util-cost");
+
+    function setRiskMode(mode) {
+      currentRiskMode = mode;
+      modeSafety.classList.toggle("active", mode === "Safety");
+      modeComfort.classList.toggle("active", mode === "Comfort");
+    }
+    function setUtilityMode(mode) {
+      currentUtilityMode = mode;
+      utilTime.classList.toggle("active", mode === "Time");
+      utilDistance.classList.toggle("active", mode === "Distance");
+      utilCost.classList.toggle("active", mode === "Cost");
+    }
+
+    modeSafety.addEventListener("click", () => setRiskMode("Safety"));
+    modeComfort.addEventListener("click", () => setRiskMode("Comfort"));
+    utilTime.addEventListener("click", () => setUtilityMode("Time"));
+    utilDistance.addEventListener("click", () => setUtilityMode("Distance"));
+    utilCost.addEventListener("click", () => setUtilityMode("Cost"));
+
+    async function startSimulation() {
+      const payload = {
+        train1: {
+          start: document.getElementById("t1-start").value,
+          dest: document.getElementById("t1-dest").value
+        },
+        train2: {
+          start: document.getElementById("t2-start").value,
+          dest: document.getElementById("t2-dest").value
+        },
+        train3: {
+          start: document.getElementById("t3-start").value,
+          dest: document.getElementById("t3-dest").value
+        },
+        risk_mode: currentRiskMode,
+        utility_mode: currentUtilityMode
+      };
+
+      await fetch("/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+    }
+
+    async function resetSimulation() {
+      await fetch("/reset", { method: "POST" });
+    }
+
+    async function setFireAlarm(active) {
+      const station = document.getElementById("alarm-station").value;
+      await fetch("/fire_alarm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ station, active })
+      });
+    }
+
+    async function pollStatus() {
+      try {
+        const res = await fetch("/status");
+        if (!res.ok) return;
+        const data = await res.json();
+
+        document.getElementById("active-trains").textContent = data.active_trains;
+        document.getElementById("total-distance").textContent = data.total_distance.toFixed(1);
+        document.getElementById("ai-efficiency").textContent =
+          (data.ai_efficiency * 100).toFixed(0) + "%";
+        document.getElementById("speed-multiplier").textContent =
+          data.running ? "1.0x" : "0.0x";
+
+        const d = data.train_distances || {};
+        const t = data.train_times || {};
+        const c = data.train_costs || {};
+
+        function setTrainMetrics(name, dId, tId, cId) {
+          const dist = d[name] || 0;
+          const secs = t[name] || 0;
+          const cost = c[name] || 0;
+          document.getElementById(dId).textContent = dist.toFixed(1);
+          document.getElementById(tId).textContent = (secs / 60).toFixed(1); // minutes
+          document.getElementById(cId).textContent = cost.toFixed(0);        // PKR
+        }
+
+        setTrainMetrics("Train 1", "t1-distance", "t1-time", "t1-cost");
+        setTrainMetrics("Train 2", "t2-distance", "t2-time", "t2-cost");
+        setTrainMetrics("Train 3", "t3-distance", "t3-time", "t3-cost");
+
+        document.getElementById("active-trains-trend").textContent =
+          data.running && data.active_trains > 0 ? "Trains in motion" : "Idle";
+      } catch {}
+    }
+
+    let map;
+    const cityMarkers = {};
+    const trainMarkers = {};
+    const trainTrails = {};
+    const alarmRings = {};
+
+    document.addEventListener("DOMContentLoaded", () => {
+      map = L.map("map").setView([30.65, 70.68], 6);
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 18,
+        attribution: "&copy; OpenStreetMap",
+      }).addTo(map);
+
+      document.getElementById("start-btn").addEventListener("click", startSimulation);
+      document.getElementById("reset-btn").addEventListener("click", resetSimulation);
+      document.getElementById("raise-alarm-btn").addEventListener("click", () => setFireAlarm(true));
+      document.getElementById("clear-alarm-btn").addEventListener("click", () => setFireAlarm(false));
+    });
+
+    async function pollTrains() {
+      try {
+        const res = await fetch("/trains");
+        if (!res.ok) return;
+        const data = await res.json();
+
+        const cities = data.cities || {};
+        const trains = data.trains || [];
+        const alarms = new Set(data.fire_alarms || []);
+
+        if (map && Object.keys(cityMarkers).length === 0) {
+          for (const [name, coords] of Object.entries(cities)) {
+            const [lat, lng] = coords;
+            cityMarkers[name] = L.circleMarker([lat, lng], {
+              radius: 6,
+              color: "#38bdf8",
+              fillColor: "#0ea5e9",
+              fillOpacity: 0.9,
+            })
+              .addTo(map)
+              .bindTooltip(name, { permanent: false });
+          }
+        }
+
+        if (!map) return;
+
+        for (const [name, coords] of Object.entries(cities)) {
+          const [lat, lng] = coords;
+          const isAlarm = alarms.has(name);
+          if (isAlarm) {
+            if (!alarmRings[name]) {
+              alarmRings[name] = L.circle([lat, lng], {
+                radius: 10000,
+                color: "#ef4444",
+                fillColor: "rgba(248, 113, 113, 0.2)",
+                fillOpacity: 0.4,
+              }).addTo(map);
+            }
+          } else if (alarmRings[name]) {
+            map.removeLayer(alarmRings[name]);
+            delete alarmRings[name];
+          }
+        }
+
+        for (const t of trains) {
+          const [lat, lng] = t.latlng;
+          const name = t.name;
+          const color = t.color || "#ef4444";
+
+          if (!trainTrails[name]) {
+            trainTrails[name] = L.polyline(t.path, {
+              color,
+              weight: 3,
+              opacity: 0.9,
+              dashArray: "4,6",
+            }).addTo(map);
+          } else {
+            trainTrails[name].setLatLngs(t.path);
+          }
+
+          if (!trainMarkers[name]) {
+            trainMarkers[name] = L.circleMarker([lat, lng], {
+              radius: 7,
+              color,
+              fillColor: color,
+              fillOpacity: 0.9,
+            })
+              .addTo(map)
+              .bindTooltip(name, { permanent: false });
+          } else {
+            trainMarkers[name].setLatLng([lat, lng]);
+          }
+        }
+      } catch {}
+    }
+
+    const statusInterval = 500;
+    setInterval(pollStatus, statusInterval);
+    const trainsInterval = 250;
+    setInterval(pollTrains, trainsInterval);
+    document.getElementById("tick-rate-label").textContent =
+      (trainsInterval / 1000) + "s polling";
+  </script>
+</body>
+</html>
