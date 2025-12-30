@@ -1,7 +1,7 @@
-<<<<<<< HEAD
-# autonomous-train-system-pakistan
+
+# Autonomous Train System Pakistan
 An intelligent autonomous train simulation that shows how AI can optimize train routing across Pakistan’s railway network based on passenger priorities (cost, time, or distance).
-=======
+
 # Autonomous Train System – Pakistan Railway Simulation
 
 Interactive **railway control panel** for Pakistan’s network, with an AI-style routing engine that simulates up to three autonomous trains moving between major cities on a live map.[file:1][file:4] The system models utility-based routing (time, distance, cost), fire alarms, and automatic detours while exposing metrics like total distance, travel time, fuel cost, and an AI efficiency score.[file:1][file:4]
