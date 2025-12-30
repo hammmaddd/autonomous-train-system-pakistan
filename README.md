@@ -155,5 +155,5 @@ You should see the control panel with metrics, controls, and the Pakistan railwa
 
 ## Author
 
-- Developed by `<Your Name>` as an AI-driven railway simulation project focusing on Pakistan’s network and decision-making under risk and cost tradeoffs.
+- Developed by `MUHAMMAD HAMMAD SHAKOOR` as an AI-driven railway simulation project focusing on Pakistan’s network and decision-making under risk and cost tradeoffs.
 >>>>>>> ae9917d (Add detailed README)
